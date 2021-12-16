@@ -85,8 +85,9 @@ int mm_init(void)
     put(heapP + Wsize*4, pack(Dsize*2, 1));
     put(heapP + Wsize*5, pack(0, 1));
     // 프롤로그 블록에 빈칸을 만들어 blank들의 chain을 관리
-    // chainstartP의 초기값(= chain의 끝)은 프롤로그 블록의 bp를 포인팅
+    // chainstart의 초기값은 프롤로그 블록의 bp를 포인팅
     chainstartP = heapP + Wsize*2;
+    // heapP 위치
     heapP = heapP + Wsize*4;
     if (extend_heap(CHUNKsize / Wsize) == NULL)
         return -1;
@@ -107,16 +108,18 @@ static char *extend_heap(size_t words)
 
 static char *coalesce(char *bp)
 {
-    char *prev, *next;
+    char *prev;
+    char *next;
     prev = prevblockP(bp);
     next = nextblockP(bp);
     size_t prevalloc = getalloc(footerP(prev));
     size_t nextalloc = getalloc(headerP(next));
+    
     if (!nextalloc)
-    {
-        unchain(next);
-        coalesce_next(bp, getsize(headerP(bp)) + getsize(headerP(next)));
-    }
+        {
+            unchain(next);
+            coalesce_next(bp, getsize(headerP(bp)) + getsize(headerP(next)));
+        }
     if (!prevalloc)
     {
         unchain(prev);
@@ -135,8 +138,6 @@ static char *coalesce_next(char *bp, size_t size)
     return bp;
 }
 
-// bp를 chain의 새 시작점으로 등록
-// chain 시작 : 가장 최근 등록된 bp / 끝 : 프롤로그 블록
 static void chain(char *bp)
 {
     setnextblank(bp, chainstartP);
@@ -145,7 +146,6 @@ static void chain(char *bp)
     chainstartP = bp;
 }
 
-// bp의 prev와 next를 이음으로써 bp를 unchain
 static void unchain(char *bp)
 {
     if (getprevblank(bp))
@@ -168,7 +168,6 @@ static char *find_fit(size_t asize)
     char *bp;
     // chainstartP에서 시작
     // bp = getnextblankP(bp) 반복탐색
-    // chain의 끝이 프롤로그 블록이므로 alloc이 1이면 탐색 종료
     for (bp = chainstartP; getalloc(headerP(bp)) == 0; bp = getnextblank(bp))
     {
         if (getsize(headerP(bp)) >= asize)

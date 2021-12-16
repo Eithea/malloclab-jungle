@@ -43,7 +43,7 @@ team_t team = {
 // heap 확장의 최소단위 CHUNKsize 설정
 // 매 확장마다 딱 필요한만큼만 확장한다면 너무 작은 크기의 확장을 반복시 연산력의 낭비가 된다
 // 필요한 메모리가 CHUNKsize 이하이면 CHUNKsize만큼 확장할 것
-#define CHUNKsize (1<<12)
+#define CHUNKsize (1<<8)
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
 #define get(p) (*(unsigned int *)(p))

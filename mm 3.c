@@ -135,14 +135,42 @@ static char *coalesce_next(char *bp, size_t size)
     return bp;
 }
 
-// bp를 chain의 새 시작점으로 등록
+// bp의 크기에 따라 내림차순 chain의 적절한 위치에 배치
 // chain 시작 : 가장 최근 등록된 bp / 끝 : 프롤로그 블록
 static void chain(char *bp)
 {
-    setnextblank(bp, chainstartP);
-    setprevblank(chainstartP, bp);
-    setprevblank(bp, NULL);
-    chainstartP = bp;
+    size_t size = getsize(headerP(bp));
+    char *searchP;
+    // chain이 비었거나 chain 내 가장 큰 블록보다 크다면 맨 앞에 배치
+    if (chainstartP == heapP - Wsize*2)
+    {
+        setnextblank(bp, chainstartP);
+        setprevblank(chainstartP, bp);
+        setprevblank(bp, NULL);
+        chainstartP = bp;
+    }
+    else if (getsize(headerP(chainstartP)) < size)
+    {
+        setnextblank(bp, chainstartP);
+        setprevblank(chainstartP, bp);
+        setprevblank(bp, NULL);
+        chainstartP = bp;
+    }
+    // while문으로 size를 비교해가며 위치할 곳을 탐색 후 배치
+    else
+    {
+        searchP = chainstartP;
+        while (searchP != heapP - Wsize*2)
+        {
+            if (getsize(headerP(searchP)) < size)
+                break;
+            searchP = getnextblank(searchP);
+        }
+        setprevblank(bp, getprevblank(searchP));
+        setnextblank(bp, searchP);
+        setprevblank(searchP, bp);
+        setnextblank(getprevblank(bp), bp);
+    }
 }
 
 // bp의 prev와 next를 이음으로써 bp를 unchain
@@ -163,18 +191,45 @@ void mm_free(void *bp)
     coalesce(bp);
 }
 
+static size_t frequently_size = 0;
+static size_t count = 0;
 static char *find_fit(size_t asize)
 {
+    // if (!frequently_size)
+    //     frequently_size = asize;
+    // else if (frequently_size && frequently_size != asize)
+    // {
+    //     frequently_size = asize;
+    //     count = 0;
+    // }
+    // else
+    //     count = count + 1;
     char *bp;
-    // chainstartP에서 시작
-    // bp = getnextblankP(bp) 반복탐색
-    // chain의 끝이 프롤로그 블록이므로 alloc이 1이면 탐색 종료
-    for (bp = chainstartP; getalloc(headerP(bp)) == 0; bp = getnextblank(bp))
+    // if (count == 200)
+    // {
+    //     frequently_size = Dsize * (1 + (frequently_size + Dsize - 1) / Dsize);
+    //     if ((bp = extend_heap(800*frequently_size / Wsize)) == NULL)
+	// 	    return (NULL);
+    //     place(bp, asize);
+    //     count = 0;
+    //     frequently_size = 0;
+    //     return (bp);       
+    // }
+    bp = chainstartP;
+    // chain이 빈 경우 return NULL
+    if ((bp == heapP - Wsize*2))
+        return NULL;
+    // 가장 큰 *chainstartP의 크기보다도 asize가 크다면 탐색하지 않아도 fit이 없음을 알 수 있다
+    if (asize > getsize(headerP(bp)))
+        return NULL;
+    // 크기 내림차순의 chain에서 배치가 불가능한 위치까지 내려가서 그 직전 블록을 할당
+    while (bp != heapP - Wsize*2)
     {
-        if (getsize(headerP(bp)) >= asize)
-            return bp;
+        if (getsize(headerP(bp)) < asize)
+            break;
+        bp = getnextblank(bp);
     }
-    return NULL;
+    return getprevblank(bp);
 }
 
 #define placeCUTLINE (1<<6) 
@@ -233,8 +288,8 @@ void *mm_malloc(size_t size)
     return place(bp, asize);   
 }
 
-#define oversurplusCUTLINE (1<<14)
-#define undersurplusCUTLINE (1<<14) 
+#define oversurplusCUTLINE (1<<12)
+#define undersurplusCUTLINE (1<<12) 
 void *mm_realloc(void *bp, size_t newsize)
 {
     if (bp == NULL)

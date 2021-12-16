@@ -40,7 +40,7 @@ team_t team = {
 
 #define Wsize 4 /* char 한칸 */
 #define Dsize 8 /* char 두칸 */
-#define CHUNKsize (1<<12)
+#define CHUNKsize (1<<8)
 #define max(x, y) ((x) > (y) ? (x) : (y))
 #define get(p) (*(unsigned int *)(p))
 #define put(p, val) (*(unsigned int *)(p) = (val))
